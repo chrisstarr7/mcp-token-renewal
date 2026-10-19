@@ -7,7 +7,7 @@ $originalEnvironment = @{
     HOME = $env:HOME
 }
 $null = New-Item -ItemType Directory -Path $tempRoot
-$testKeychain = @{}
+$global:testKeychain = @{}
 
 function Assert-True([bool]$Condition, [string]$Message) {
     if (-not $Condition) { throw $Message }
@@ -74,14 +74,14 @@ approval_mode = "read-only"
             )
             if ($Operation -eq 'add-generic-password') {
                 Assert-True $w 'Production passed the Keychain password in its argument list.'
-                $script:testKeychain[$a] = 'test-only-password'
+                $global:testKeychain[$a] = 'test-only-password'
             }
             elseif ($Operation -eq 'find-generic-password') {
-                if (-not $script:testKeychain.ContainsKey($a)) { $global:LASTEXITCODE = 1; return }
-                Write-Output $script:testKeychain[$a]
+                if (-not $global:testKeychain.ContainsKey($a)) { $global:LASTEXITCODE = 1; return }
+                Write-Output $global:testKeychain[$a]
             }
             elseif ($Operation -eq 'delete-generic-password') {
-                $null = $script:testKeychain.Remove($a)
+                $null = $global:testKeychain.Remove($a)
             }
             $global:LASTEXITCODE = 0
         }
@@ -118,7 +118,7 @@ approval_mode = "read-only"
     Assert-True (-not (Test-Path -LiteralPath $credentialPath)) 'Credential cleanup did not remove credential metadata.'
     if ($platform -eq 'macOS') {
         $null = Invoke-TestSecurity find-generic-password -s (Get-MtrCredentialService) -a ([string]$savedCredential.credential_id) -w 2>$null
-        Assert-True (-not $testKeychain.ContainsKey([string]$savedCredential.credential_id)) 'Credential cleanup left the password in the test Keychain store.'
+        Assert-True (-not $global:testKeychain.ContainsKey([string]$savedCredential.credential_id)) 'Credential cleanup left the password in the test Keychain store.'
     }
 
     'ZenTao configuration and credential smoke checks passed on ' + $platform + '.'

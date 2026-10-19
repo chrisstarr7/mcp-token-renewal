@@ -10,7 +10,7 @@ It helps distinguish authentication handled by the MCP host from tool calling ha
 |---|---|---|
 | Codex | MCP host | Supports a local `http_headers_helper` for supported local HTTP MCP connections. |
 | Claude Code | MCP host | Supports OAuth renewal and a custom `headersHelper` for remote HTTP MCP authentication. The helper must complete within Claude Code's documented timeout. |
-| OpenCode | MCP host | Supports remote MCP headers and OAuth. Use native OAuth where the MCP server supports it. |
+| OpenCode | MCP host | Supports remote MCP headers and OAuth. Its documented configuration does not support a command helper for the ZenTao API-token login flow. |
 | DeepSeek API | Model provider | Supports function/tool calls; it is not itself an MCP host. Use it through an MCP-capable application. |
 
 Claude Desktop and Claude web connectors are separate from Claude Code. Their remote connector flow is configured through the Claude UI and does not expose Claude Code's local `headersHelper` mechanism.
@@ -36,18 +36,25 @@ For Claude Code, use `~/.claude/skills/mcp-token-renewal` as the clone destinati
 
 To share one checkout between these clients, install it under `~/.agents/skills/mcp-token-renewal` and create a symlink at `~/.claude/skills/mcp-token-renewal` pointing to that folder. Restart or reload the client if it does not discover the Skill immediately.
 
-## ZenTao example scripts
+## ZenTao automatic re-login setup (Windows)
 
 The included PowerShell scripts are an optional, company-specific example for ZenTao API V2; they are not a generic token-renewal engine.
 
-On Windows:
+After installing the Skill, run its setup script once in PowerShell:
 
-1. Run `scripts/zentao/save-credentials.ps1` interactively. It prompts for the ZenTao account and hidden password input.
-2. The password is stored using Windows current-user DPAPI under `%LOCALAPPDATA%\McpTokenRenewal\zentao\credentials.json`.
-3. Configure the MCP host to run `scripts/zentao/get-headers.ps1` as its documented dynamic-header helper.
-4. The helper sends credentials only to the fixed HTTPS ZenTao API V2 login endpoint and writes the `token` header JSON to stdout. It suppresses response details on errors.
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$HOME\.agents\skills\mcp-token-renewal\scripts\zentao\configure.ps1"
+```
 
-The helper re-authenticates through ZenTao API V2 login; ZenTao's documented flow is not a dedicated refresh-token grant. The MCP gateway must return the status expected by the host before a host-level retry can occur. Verify this in a safe environment before relying on renewal. The script does not configure an MCP client automatically.
+If installed somewhere else, replace the path with that checkout's `scripts\zentao\configure.ps1`. The script asks whether to configure Codex, Claude Code, or both, then prompts for the ZenTao account and hidden password. It:
+
+1. Stores the password using current-user Windows DPAPI under `%LOCALAPPDATA%\McpTokenRenewal\zentao\credentials.json`.
+2. Backs up each selected client config with a timestamp.
+3. Adds or updates only the `zentao` MCP entry to call the local `get-headers.ps1` script, preserving the other client settings. It stops if the existing `zentao` entry points to another URL.
+
+Restart the selected client after setup. The client calls the helper when connecting and, for documented HTTP 401/403 cases, can refresh headers and retry once. The helper sends credentials only to the fixed HTTPS ZenTao API V2 login endpoint and prints only the `token` header JSON to stdout. On errors it suppresses response details.
+
+This is automatic **re-login**, not a ZenTao refresh-token grant. It works after an expired token only if the MCP gateway returns HTTP 401/403 in the form the client expects, ZenTao accepts another login, and the helper returns headers that cause the client to retry. This end-to-end expiry path has not been verified against the company gateway. Do not force expiry or use write operations to test it. OpenCode and DeepSeek API do not invoke this helper; DeepSeek is a model provider, not the MCP host.
 
 ## Security
 
@@ -67,6 +74,7 @@ references/
   client-compatibility.md
 scripts/
   zentao/
+    configure.ps1
     get-headers.ps1
     save-credentials.ps1
 ```

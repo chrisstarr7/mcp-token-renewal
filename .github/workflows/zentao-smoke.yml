@@ -1,0 +1,20 @@
+name: ZenTao setup smoke tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  smoke:
+    timeout-minutes: 3
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run cross-platform smoke checks
+        shell: pwsh
+        run: ./tests/zentao-smoke.ps1

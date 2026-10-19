@@ -1,9 +1,10 @@
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
+. (Join-Path $PSScriptRoot 'common.ps1')
 
 # Keep this endpoint fixed so stored credentials cannot be redirected to a caller-selected host.
 $loginUri = 'https://pms.daoyoudao.com/zentao/api.php/v2/users/login'
-$credentialPath = Join-Path $env:LOCALAPPDATA 'McpTokenRenewal\zentao\credentials.json'
+$credentialPath = Get-MtrCredentialPath
 
 try {
     if (-not (Test-Path -LiteralPath $credentialPath -PathType Leaf)) {
@@ -11,15 +12,27 @@ try {
     }
 
     $credential = Get-Content -LiteralPath $credentialPath -Raw | ConvertFrom-Json
+    $platform = Get-MtrPlatform
     if ([string]::IsNullOrWhiteSpace([string]$credential.account) -or
-        [string]::IsNullOrWhiteSpace([string]$credential.password_protected)) {
+        ($platform -eq 'Windows' -and [string]::IsNullOrWhiteSpace([string]$credential.password_protected)) -or
+        ($platform -eq 'macOS' -and [string]::IsNullOrWhiteSpace([string]$credential.credential_id))) {
         throw 'credential file invalid'
     }
 
-    $securePassword = ConvertTo-SecureString ([string]$credential.password_protected)
-    $passwordPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword)
+    $passwordPointer = [IntPtr]::Zero
     try {
-        $plainPassword = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($passwordPointer)
+        if ($platform -eq 'Windows') {
+            $securePassword = ConvertTo-SecureString ([string]$credential.password_protected)
+            $passwordPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword)
+            $plainPassword = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($passwordPointer)
+        }
+        else {
+            $security = Get-MtrSecurityCommand
+            $plainPassword = [string](& $security find-generic-password -s (Get-MtrCredentialService) -a ([string]$credential.credential_id) -w 2>$null)
+            if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($plainPassword)) {
+                throw 'macOS Keychain credential unavailable'
+            }
+        }
         $body = @{ account = [string]$credential.account; password = $plainPassword } |
             ConvertTo-Json -Compress
 
@@ -49,6 +62,7 @@ try {
         if ($client) { $client.Dispose() }
         if ($handler) { $handler.Dispose() }
         $responseJson = $null
+        $credential = $null
     }
 
     if ($response.status -ne 'success' -or [string]::IsNullOrWhiteSpace([string]$response.token)) {

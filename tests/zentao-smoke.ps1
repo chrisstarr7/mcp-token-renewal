@@ -60,7 +60,8 @@ approval_mode = "read-only"
         Assert-True ($codexUpdate.Content.Contains('pwsh')) 'macOS helper command does not use PowerShell 7.'
         Assert-True ((Get-MtrCredentialPath).Contains('Library/Application Support')) 'macOS credential metadata path is incorrect.'
         Assert-True ((Get-MtrSecurityCommand) -eq '/usr/bin/security') 'macOS Keychain command path is incorrect.'
-        Assert-True ((ConvertTo-MtrShellArgument "/tmp/a'b c") -eq "'/tmp/a`"'`"'b c'") 'macOS shell argument quoting failed.'
+        $expectedShellArgument = "'" + '/tmp/a' + "'" + '"' + "'" + '"' + "'" + 'b c' + "'"
+        Assert-True ((ConvertTo-MtrShellArgument "/tmp/a'b c") -ceq $expectedShellArgument) 'macOS shell argument quoting failed.'
 
         $testKeychain = Join-Path $tempRoot 'mtr-test.keychain-db'
         & /usr/bin/security create-keychain -p 'test-only-keychain-password' $testKeychain | Out-Null

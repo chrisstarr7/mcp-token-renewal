@@ -1,5 +1,7 @@
 $ErrorActionPreference = 'Stop'
-. (Join-Path $PSScriptRoot 'common.ps1')
+if (-not (Get-Command Get-MtrPlatform -CommandType Function -ErrorAction SilentlyContinue)) {
+    . (Join-Path $PSScriptRoot 'common.ps1')
+}
 
 $platform = Get-MtrPlatform
 

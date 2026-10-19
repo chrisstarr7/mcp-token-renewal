@@ -1,19 +1,19 @@
 # MCP Token Renewal
 
-跨客户端 MCP 身份认证续期指南，并提供 ZenTao API V2 的 Windows 配置示例。Skill 会根据 MCP 客户端和服务端的认证能力，指导选择 OAuth、客户端原生 Header Helper 或其他合适方案。
+跨客户端 MCP 身份认证续期指南，并提供 ZenTao API V2 的 Windows 和 macOS 配置示例。Skill 会根据 MCP 客户端和服务端的认证能力，指导选择 OAuth、客户端原生 Header Helper 或其他合适方案。
 
 ## 功能
 
 - 指导为支持动态 Header Helper 的 MCP 客户端配置认证续期。
 - 提供 Codex 和 Claude Code 的 ZenTao API V2 登录示例。
-- 使用本机 Windows DPAPI 保护保存的登录密码，不把密码写入 MCP 配置。
+- 使用 Windows DPAPI 或 macOS Keychain 保存登录密码，不把密码写入 MCP 配置。
 
 ## 支持范围
 
 | 客户端或服务 | 支持情况 |
 | --- | --- |
-| Codex（Windows） | 支持 ZenTao Header Helper 配置 |
-| Claude Code（Windows） | 支持 ZenTao Header Helper 配置 |
+| Codex（Windows、macOS） | 支持 ZenTao Header Helper 配置 |
+| Claude Code（Windows、macOS） | 支持 ZenTao Header Helper 配置 |
 | OpenCode | 当前配置示例不支持命令型 Header Helper |
 | DeepSeek API | 模型服务，不是 MCP 客户端；需通过支持 MCP 的客户端连接服务 |
 
@@ -21,8 +21,9 @@ ZenTao 示例使用固定的公司服务地址，不能直接用于其他 ZenTao
 
 ## 环境要求
 
-- Windows
+- Windows 或 macOS
 - Node.js、npm 和 Git
+- Windows PowerShell 5.1，或 macOS PowerShell 7（`pwsh`）
 - Codex 或 Claude Code
 - ZenTao 账号，并且该实例允许使用 API V2 登录
 
@@ -36,13 +37,21 @@ npx skills add chrisstarr7/mcp-token-renewal -g -a codex claude-code -y
 
 ## 配置 ZenTao
 
-在 PowerShell 运行配置脚本：
+在 PowerShell 运行配置脚本。
+
+Windows：
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$HOME\.agents\skills\mcp-token-renewal\scripts\zentao\configure.ps1"
 ```
 
-脚本会让你选择 Codex、Claude Code 或两者，检查客户端配置后，在本机提示输入禅道账号，并通过隐藏提示输入密码。密码使用当前 Windows 用户的 DPAPI 加密保存。写入前会备份已有配置；遇到不支持的配置格式或已有不同的 `zentao` 地址时会停止。
+macOS：
+
+```powershell
+pwsh -NoProfile -File "$HOME/.agents/skills/mcp-token-renewal/scripts/zentao/configure.ps1"
+```
+
+脚本会让你选择 Codex、Claude Code 或两者，检查客户端配置后，在本机提示输入禅道账号。Windows 使用隐藏密码提示并通过当前用户的 DPAPI 加密保存；macOS 使用系统 Keychain 保存密码。写入前会备份已有配置；遇到不支持的配置格式或已有不同的 `zentao` 地址时会停止。
 
 配置完成后重启所选客户端。不要在聊天中输入或发送账号密码。
 
@@ -83,6 +92,18 @@ npx skills update mcp-token-renewal -g
 npx skills remove mcp-token-renewal -g -y
 ```
 
-卸载不会删除客户端中的 MCP 配置或本机凭据。停止使用时，恢复配置备份，并按需删除 `%LOCALAPPDATA%\McpTokenRenewal\zentao\credentials.json`。
+卸载不会删除客户端中的 MCP 配置或本机凭据。停止使用时，先恢复客户端配置备份，再运行下面的命令清除本机凭据。
+
+Windows：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$HOME\.agents\skills\mcp-token-renewal\scripts\zentao\remove-credentials.ps1"
+```
+
+macOS：
+
+```powershell
+pwsh -NoProfile -File "$HOME/.agents/skills/mcp-token-renewal/scripts/zentao/remove-credentials.ps1"
+```
 
 更多客户端认证细节见 [`references/client-compatibility.md`](references/client-compatibility.md)。

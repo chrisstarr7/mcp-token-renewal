@@ -1,0 +1,4 @@
+# Keep local credentials out of version control.
+.env
+.env.*
+**/credentials.json

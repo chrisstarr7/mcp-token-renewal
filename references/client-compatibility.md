@@ -1,0 +1,36 @@
+# MCP Client Compatibility
+
+Check current vendor documentation before configuration because client behavior can change. Distinguish the agent host that connects to MCP from the model provider that generates tool calls.
+
+| Product | Role | Native relevant behavior | What that means for renewal |
+|---|---|---|---|
+| Codex | MCP client/agent host | Local Streamable HTTP MCP supports `http_headers_helper`. Codex refreshes helper headers after a same-origin POST receives HTTP 401/403, then retries once only when returned headers changed. No helper for stdio or remote-executor connections. | Suitable for custom login/header renewal when the MCP endpoint exposes the expected HTTP status and the helper obtains a changed credential. |
+| Claude Code | MCP client/agent host | Supports OAuth with automatic refresh/reconnect/retry after an expired OAuth token. For custom headers, `headersHelper` runs on connect and after tool-call HTTP 401/403, then reconnects and retries once. It runs fresh (not cached) and has a 10-second timeout. | Suitable for custom token renewal via a fast local helper. Keep secrets in a local credential store/file rather than relying on environment variables that may be stripped for project/plugin scoped servers. Do not assume every MCP error reaches the helper; confirm the server returns the documented HTTP status. |
+| Claude Desktop / Claude web connectors | MCP client/agent host | Remote MCP connectors support authless and OAuth connections, configured through Claude's connector UI. The documented flow does not expose a local command-based header helper. | Use the service's compatible OAuth flow. The Claude Code `headersHelper` approach does not transfer to Claude Desktop/web connectors; custom ZenTao token renewal is not established through this UI. |
+| OpenCode | MCP client/agent host | Remote MCP supports headers and OAuth. OpenCode can start OAuth when a server returns 401 and securely stores OAuth credentials. Header values can use environment-variable references. | Native automatic renewal is suitable when the server supports OAuth. The documented remote-header configuration does not provide an arbitrary command helper; custom API-key/login-token renewal needs an external refresh mechanism or adapter. |
+| DeepSeek API | Model provider | Supports function/tool calls; the application must execute the selected function and return its result. Its Responses API documents function tools and says MCP tool types are ignored. | Use DeepSeek through an MCP-capable host such as OpenCode. That host owns MCP connections and credentials. DeepSeek API tool calling alone is not an MCP client or token refresh manager. |
+
+## Host/provider examples
+
+- **Codex + ZenTao:** use the included local PowerShell helper only after storing credentials locally and confirming the company gateway's 401/403 behavior. Codex documents a one-time retry, not a background refresh timer.
+- **Claude Code + ZenTao:** configure the HTTP MCP server's `headersHelper` to run `scripts/zentao/get-headers.ps1`. The helper must finish within Claude Code's 10-second timeout and print only the required JSON header object. Claude Code reruns it after a tool-call 401/403 and retries once; this does not prove ZenTao's gateway returns that status for an expired token.
+- **OpenCode + OAuth MCP:** use OpenCode's built-in remote MCP OAuth flow if the server advertises and implements compatible OAuth endpoints. For a custom `token` header based on ZenTao API V2 login, environment substitution alone is not automatic renewal.
+- **OpenCode + DeepSeek model + ZenTao MCP:** OpenCode remains the MCP host. DeepSeek supplies model responses/tool-call requests. Apply OpenCode's MCP authentication capabilities; do not configure the DeepSeek API key as the ZenTao token.
+- **Direct DeepSeek API integration:** the application must translate MCP tool definitions into DeepSeek function tools and dispatch calls itself. This is an application integration, not a DeepSeek MCP setting.
+
+## Shared Skill installation
+
+Codex and OpenCode discover shared Agent Skills under `~/.agents/skills`. Claude Code discovers personal Skills under `~/.claude/skills` and supports symlinked Skill folders. On Windows, a single canonical folder under `%USERPROFILE%\.agents\skills\mcp-token-renewal` can be linked from `%USERPROFILE%\.claude\skills\mcp-token-renewal` so these hosts use the same Skill and helper scripts. This Skill-folder integration applies to Claude Code; Claude Desktop's remote connectors are configured separately through its UI.
+
+## Official references
+
+- Codex MCP configuration: https://learn.chatgpt.com/docs/extend/mcp?surface=cli
+- Codex Skills: https://learn.chatgpt.com/docs/build-skills
+- Claude Code MCP authentication and `headersHelper`: https://code.claude.com/docs/en/mcp#authenticating-with-remote-mcp-servers
+- Claude Code Skills: https://code.claude.com/docs/en/skills
+- Claude Desktop remote MCP connectors: https://support.anthropic.com/en/articles/11503834-building-custom-connectors-via-remote-mcp-servers
+- OpenCode MCP servers and OAuth: https://opencode.ai/docs/mcp-servers
+- DeepSeek tool calls: https://api-docs.deepseek.com/guides/tool_calls
+- DeepSeek Responses API tool support: https://api-docs.deepseek.com/guides/responses_api
+- ZenTao API V2 login: https://www.zentao.net/book/api/post-users-login-2142.html
+- ZenTao MCP setup: https://www.zentao.net/book/zentaopms/mcp-2536.html

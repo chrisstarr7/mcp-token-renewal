@@ -13,6 +13,36 @@ function Assert-True([bool]$Condition, [string]$Message) {
     if (-not $Condition) { throw $Message }
 }
 
+function Test-NativeMacOSKeychain {
+    param([string]$TemporaryRoot)
+
+    $security = '/usr/bin/security'
+    $keychainPath = Join-Path $TemporaryRoot 'native-smoke.keychain-db'
+    $service = 'mcp-token-renewal.smoke'
+    $account = [guid]::NewGuid().ToString('N')
+
+    & $security create-keychain -p 'test-only-keychain-password' $keychainPath | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw 'Could not create the isolated macOS Keychain.' }
+    try {
+        & $security unlock-keychain -p 'test-only-keychain-password' $keychainPath | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'Could not unlock the isolated macOS Keychain.' }
+
+        & $security add-generic-password -U -s $service -a $account -w 'test-only-password' $keychainPath | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'Could not save a dummy credential to the isolated macOS Keychain.' }
+
+        $storedPassword = [string](& $security find-generic-password -s $service -a $account -w $keychainPath 2>$null)
+        if ($LASTEXITCODE -ne 0 -or $storedPassword -ne 'test-only-password') {
+            throw 'Could not read the dummy credential from the isolated macOS Keychain.'
+        }
+
+        & $security delete-generic-password -s $service -a $account $keychainPath 2>$null | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'Could not delete the dummy credential from the isolated macOS Keychain.' }
+    }
+    finally {
+        & $security delete-keychain $keychainPath 2>$null | Out-Null
+    }
+}
+
 try {
     $env:USERPROFILE = $tempRoot
     $env:HOME = $tempRoot
@@ -62,6 +92,7 @@ approval_mode = "read-only"
         Assert-True ((Get-MtrSecurityCommand) -eq '/usr/bin/security') 'macOS Keychain command path is incorrect.'
         $expectedShellArgument = "'" + '/tmp/a' + "'" + '"' + "'" + '"' + "'" + 'b c' + "'"
         Assert-True ((ConvertTo-MtrShellArgument "/tmp/a'b c") -ceq $expectedShellArgument) 'macOS shell argument quoting failed.'
+        Test-NativeMacOSKeychain $tempRoot
 
         function Get-MtrSecurityCommand { return 'Invoke-TestSecurity' }
         function Invoke-TestSecurity {

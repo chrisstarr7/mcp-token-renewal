@@ -65,21 +65,23 @@ approval_mode = "read-only"
 
         function Get-MtrSecurityCommand { return 'Invoke-TestSecurity' }
         function Invoke-TestSecurity {
-            $operation = [string]$args[0]
-            if ($operation -eq 'add-generic-password') {
-                Assert-True ($args[-1] -eq '-w') 'Production passed the Keychain password in its argument list.'
-                $accountIndex = [array]::IndexOf($args, '-a')
-                $script:testKeychain[[string]$args[$accountIndex + 1]] = 'test-only-password'
+            param(
+                [string]$Operation,
+                [switch]$U,
+                [string]$s,
+                [string]$a,
+                [switch]$w
+            )
+            if ($Operation -eq 'add-generic-password') {
+                Assert-True $w 'Production passed the Keychain password in its argument list.'
+                $script:testKeychain[$a] = 'test-only-password'
             }
-            elseif ($operation -eq 'find-generic-password') {
-                $accountIndex = [array]::IndexOf($args, '-a')
-                $key = [string]$args[$accountIndex + 1]
-                if (-not $script:testKeychain.ContainsKey($key)) { $global:LASTEXITCODE = 1; return }
-                Write-Output $script:testKeychain[$key]
+            elseif ($Operation -eq 'find-generic-password') {
+                if (-not $script:testKeychain.ContainsKey($a)) { $global:LASTEXITCODE = 1; return }
+                Write-Output $script:testKeychain[$a]
             }
-            elseif ($operation -eq 'delete-generic-password') {
-                $accountIndex = [array]::IndexOf($args, '-a')
-                $null = $script:testKeychain.Remove([string]$args[$accountIndex + 1])
+            elseif ($Operation -eq 'delete-generic-password') {
+                $null = $script:testKeychain.Remove($a)
             }
             $global:LASTEXITCODE = 0
         }

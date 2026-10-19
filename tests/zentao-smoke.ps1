@@ -108,7 +108,7 @@ approval_mode = "read-only"
         finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($testPasswordPointer) }
     }
     else {
-        Assert-True ($savedCredential.credential_id) 'macOS Keychain identifier was not saved.'
+        Assert-True (-not [string]::IsNullOrWhiteSpace([string]$savedCredential.credential_id)) 'macOS Keychain identifier was not saved.'
         Assert-True (-not $savedCredential.PSObject.Properties['password_protected']) 'macOS credential file contains a password field.'
         $roundTripPassword = [string](Invoke-TestSecurity find-generic-password -s (Get-MtrCredentialService) -a ([string]$savedCredential.credential_id) -w)
         Assert-True ($roundTripPassword -eq 'test-only-password') 'macOS Keychain credential could not be read back.'

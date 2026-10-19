@@ -1,91 +1,83 @@
 # MCP Token Renewal
 
-A reusable Agent Skill for assessing and configuring renewable authentication for remote MCP servers.
+为 Codex、Claude Code 等 MCP 宿主评估和配置可续期的身份验证。
+ZenTao 示例使用账号密码重新登录，并通过客户端原生 Header Helper 在鉴权失败时刷新并重试。
 
-It helps distinguish authentication handled by the MCP host from tool calling handled by the model provider, checks the selected client's documented renewal behavior, and avoids claiming that a token refresh works until the server and issuer behavior match the client's retry mechanism.
+`Codex` · `Claude Code` · `OpenCode` · `DeepSeek`
 
-## Supported clients and providers
+---
 
-| Product | Role | Relevant support |
-|---|---|---|
-| Codex | MCP host | Supports a local `http_headers_helper` for supported local HTTP MCP connections. |
-| Claude Code | MCP host | Supports OAuth renewal and a custom `headersHelper` for remote HTTP MCP authentication. The helper must complete within Claude Code's documented timeout. |
-| OpenCode | MCP host | Supports remote MCP headers and OAuth. Its documented configuration does not support a command helper for the ZenTao API-token login flow. |
-| DeepSeek API | Model provider | Supports function/tool calls; it is not itself an MCP host. Use it through an MCP-capable application. |
+## 开始使用
 
-Claude Desktop and Claude web connectors are separate from Claude Code. Their remote connector flow is configured through the Claude UI and does not expose Claude Code's local `headersHelper` mechanism.
-
-See [`references/client-compatibility.md`](references/client-compatibility.md) for client-specific behavior and official documentation links.
-
-## Installation
-
-Install this repository as a Skill directory so the `SKILL.md` file is directly inside the installed directory.
-
-Typical user-level locations:
-
-- Codex and OpenCode: `~/.agents/skills/mcp-token-renewal`
-- Claude Code: `~/.claude/skills/mcp-token-renewal`
-
-For Codex or OpenCode, clone the repository directly into the Skill directory:
+安装到当前用户的 Codex 和 Claude Code：
 
 ```sh
-git clone https://github.com/chrisstarr7/mcp-token-renewal.git ~/.agents/skills/mcp-token-renewal
+npx skills add chrisstarr7/mcp-token-renewal --skill mcp-token-renewal -g -a codex -a claude-code
 ```
 
-For Claude Code, use `~/.claude/skills/mcp-token-renewal` as the clone destination instead. The repository must be accessible to the GitHub account used for cloning.
+这是私有 GitHub 仓库。安装电脑需要有仓库访问权限，并已配置 GitHub CLI、Git 凭据或 SSH。安装器会询问安装方式；Windows 如果不能创建符号链接，选择复制即可。
 
-To share one checkout between these clients, install it under `~/.agents/skills/mcp-token-renewal` and create a symlink at `~/.claude/skills/mcp-token-renewal` pointing to that folder. Restart or reload the client if it does not discover the Skill immediately.
+环境要求：Node.js/npm（运行 `npx skills`）、Codex 或 Claude Code。ZenTao 自动重新登录示例还需要 Windows PowerShell。
 
-## ZenTao automatic re-login setup (Windows)
+安装后，在 Codex 或 Claude Code 中说：
 
-The included PowerShell scripts are an optional, company-specific example for ZenTao API V2; they are not a generic token-renewal engine.
+> 请用已安装的 mcp-token-renewal Skill 配置 ZenTao 自动重新登录。运行本地配置脚本，并让我在隐藏的终端提示中输入账号密码。不要在聊天中索取或显示密码。
 
-After installing the Skill, run its setup script once in PowerShell:
+也可以在 PowerShell 中直接运行配置脚本。Codex 默认用户级路径：
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$HOME\.agents\skills\mcp-token-renewal\scripts\zentao\configure.ps1"
 ```
 
-If installed somewhere else, replace the path with that checkout's `scripts\zentao\configure.ps1`. The script asks whether to configure Codex, Claude Code, or both, then prompts for the ZenTao account and hidden password. It:
+Claude Code 默认用户级路径为 `$HOME\.claude\skills\mcp-token-renewal\scripts\zentao\configure.ps1`。如果 Skill 安装在其他位置，将命令中的路径替换为实际安装目录。脚本会让你选择 Codex、Claude Code 或两者，再在本机提示禅道登录名和隐藏密码。账号名保存在本机，密码使用当前 Windows 用户的 DPAPI 加密保存。
 
-1. Stores the password using current-user Windows DPAPI under `%LOCALAPPDATA%\McpTokenRenewal\zentao\credentials.json`.
-2. Backs up each selected client config with a timestamp.
-3. Adds or updates only the `zentao` MCP entry to call the local `get-headers.ps1` script, preserving the other client settings. It stops if the existing `zentao` entry points to another URL.
+配置完成后重启所选客户端。Codex 可用 `codex mcp list` 检查 MCP 服务是否已加载，再执行只读查询检查工具是否可用。
 
-Restart the selected client after setup. The client calls the helper when connecting and, for documented HTTP 401/403 cases, can refresh headers and retry once. The helper sends credentials only to the fixed HTTPS ZenTao API V2 login endpoint and prints only the `token` header JSON to stdout. On errors it suppresses response details.
+## 支持范围
 
-This is automatic **re-login**, not a ZenTao refresh-token grant. It works after an expired token only if the MCP gateway returns HTTP 401/403 in the form the client expects, ZenTao accepts another login, and the helper returns headers that cause the client to retry. This end-to-end expiry path has not been verified against the company gateway. Do not force expiry or use write operations to test it. OpenCode and DeepSeek API do not invoke this helper; DeepSeek is a model provider, not the MCP host.
+产品 | 角色 | 能力
+--- | --- | ---
+Codex | MCP 宿主 | 本地 HTTP MCP 支持 `http_headers_helper`，可在符合条件的鉴权失败后刷新 Header 并重试。
+Claude Code | MCP 宿主 | 远程 HTTP MCP 支持 `headersHelper`，可在符合条件的鉴权失败后重新连接并重试。
+OpenCode | MCP 宿主 | 可使用 MCP 与 OAuth；当前文档未提供 ZenTao 这种自定义账号密码登录的命令型 Header Helper。
+DeepSeek API | 模型提供方 | 提供工具调用能力，本身不是 MCP 宿主；需由 Codex、Claude Code 等宿主连接 MCP。
 
-## Security
+Claude Desktop 和 Claude 网页连接器与 Claude Code 是不同产品，不支持本仓库脚本使用的本地 `headersHelper`。
 
-- Never commit account passwords, API tokens, OAuth credentials, or generated credential files.
-- Keep credentials in an OS credential store or OS-protected local storage; do not put secrets in `SKILL.md`, README files, source control, shell history, or plaintext client configuration.
-- Use the helper only with the fixed HTTPS issuer endpoint in the script. Do not accept an arbitrary login URL alongside stored credentials.
-- Do not test renewal by forcing token expiry or by performing write operations against production data.
-- Review the client-specific timeout and retry behavior before enabling a helper. A Skill provides instructions; it does not run in the background or intercept MCP traffic by itself.
+## ZenTao 工作流程
 
-## Repository contents
+1. 首次配置时，脚本备份已选客户端配置，只更新 `zentao` MCP 项，并让用户在本地隐藏提示中输入禅道凭据。
+2. MCP 宿主连接禅道时调用本地 `get-headers.ps1`。脚本向固定的 HTTPS 禅道 API V2 登录接口提交凭据，并只把 `token` Header JSON 写到标准输出。
+3. 遇到宿主支持的 HTTP 401/403 鉴权失败时，宿主再次运行 Helper 并按其规则重试一次。
 
-```text
-.gitignore
-SKILL.md
-README.md
-references/
-  client-compatibility.md
-scripts/
-  zentao/
-    configure.ps1
-    get-headers.ps1
-    save-credentials.ps1
-```
+禅道 API V2 这里执行的是重新登录，不是 refresh-token 授权流程。能否自动恢复还取决于公司 MCP 网关是否以客户端可识别的 HTTP 401/403 返回过期状态，以及禅道是否接受再次登录。Codex 仅在 Header 发生变化时重试。当前尚未在公司网关上端到端验证过期重试。
 
-## References
+不支持通过 Skill 本身监听 MCP 请求或拦截错误。OpenCode 与 DeepSeek API 不会调用这里的 ZenTao Header Helper。
 
-- [Codex MCP configuration](https://learn.chatgpt.com/docs/extend/mcp?surface=cli)
-- [Codex Skills](https://learn.chatgpt.com/docs/build-skills)
-- [Claude Code MCP authentication](https://code.claude.com/docs/en/mcp#authenticating-with-remote-mcp-servers)
-- [Claude Code Skills](https://code.claude.com/docs/en/skills)
-- [Claude Desktop remote MCP connectors](https://support.anthropic.com/en/articles/11503834-building-custom-connectors-via-remote-mcp-servers)
-- [OpenCode MCP servers](https://opencode.ai/docs/mcp-servers)
-- [DeepSeek tool calls](https://api-docs.deepseek.com/guides/tool_calls)
-- [ZenTao API V2 login](https://www.zentao.net/book/api/post-users-login-2142.html)
+## 日常维护
+
+操作 | 命令
+--- | ---
+升级 Skill | `npx skills update mcp-token-renewal -g`
+查看全局 Skill | `npx skills list -g`
+卸载 Skill | `npx skills remove mcp-token-renewal -g -a codex -a claude-code`
+更新本地密码 | 重新运行安装目录中的 `scripts/zentao/save-credentials.ps1`
+
+卸载 Skill 不会删除 MCP 配置备份或本机凭据。需要停止自动登录时，恢复客户端配置备份，并按需删除 `%LOCALAPPDATA%\McpTokenRenewal\zentao\credentials.json`。
+
+## 隐私与安全
+
+- 不要把密码、Token 或凭据文件提交到 GitHub、发到聊天或写进客户端配置。
+- 密码只发送到脚本内固定的 HTTPS 禅道登录地址；错误日志不会输出响应内容或 Token。
+- 不要通过强制令牌过期或生产写操作验证续期。
+- 账号密码登录可能受禅道验证码、MFA、登录频率或公司策略限制；遇到登录失败时，先由管理员确认 API V2 登录是否允许。
+
+更详细的客户端兼容性和参考链接见 [`references/client-compatibility.md`](references/client-compatibility.md)。Skill 指令见 [`SKILL.md`](SKILL.md)。
+
+## 参考文档
+
+- [Agent Skills 安装 CLI](https://github.com/vercel-labs/skills)
+- [Codex MCP 配置](https://learn.chatgpt.com/docs/extend/mcp?surface=cli)
+- [Claude Code MCP 认证](https://code.claude.com/docs/en/mcp#authenticating-with-remote-mcp-servers)
+- [OpenCode MCP 服务](https://opencode.ai/docs/mcp-servers)
+- [禅道 API V2 登录](https://www.zentao.net/book/api/post-users-login-2142.html)

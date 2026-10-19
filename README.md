@@ -15,7 +15,7 @@ ZenTao 示例使用账号密码重新登录，并通过客户端原生 Header He
 npx skills add chrisstarr7/mcp-token-renewal --skill mcp-token-renewal -g -a codex -a claude-code
 ```
 
-这是私有 GitHub 仓库。安装电脑需要有仓库访问权限，并已配置 GitHub CLI、Git 凭据或 SSH。安装器会询问安装方式；Windows 如果不能创建符号链接，选择复制即可。
+这是公开 GitHub 仓库，安装不需要仓库邀请。安装器会询问安装方式；Windows 如果不能创建符号链接，选择复制即可。
 
 环境要求：Node.js/npm（运行 `npx skills`）、Codex 或 Claude Code。ZenTao 自动重新登录示例还需要 Windows PowerShell。
 

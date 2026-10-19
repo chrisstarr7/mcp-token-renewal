@@ -7,7 +7,7 @@ $originalEnvironment = @{
     HOME = $env:HOME
 }
 $null = New-Item -ItemType Directory -Path $tempRoot
-$testKeychain = $null
+$testKeychain = @{}
 
 function Assert-True([bool]$Condition, [string]$Message) {
     if (-not $Condition) { throw $Message }
@@ -63,24 +63,25 @@ approval_mode = "read-only"
         $expectedShellArgument = "'" + '/tmp/a' + "'" + '"' + "'" + '"' + "'" + 'b c' + "'"
         Assert-True ((ConvertTo-MtrShellArgument "/tmp/a'b c") -ceq $expectedShellArgument) 'macOS shell argument quoting failed.'
 
-        $testKeychain = Join-Path $tempRoot 'mtr-test.keychain-db'
-        & /usr/bin/security create-keychain -p 'test-only-keychain-password' $testKeychain | Out-Null
-        if ($LASTEXITCODE -ne 0) { throw 'Could not create the isolated test Keychain.' }
-        & /usr/bin/security unlock-keychain -p 'test-only-keychain-password' $testKeychain | Out-Null
-        if ($LASTEXITCODE -ne 0) { throw 'Could not unlock the isolated test Keychain.' }
-
         function Get-MtrSecurityCommand { return 'Invoke-TestSecurity' }
         function Invoke-TestSecurity {
             $operation = [string]$args[0]
-            $nativeArgs = @($args | Select-Object -Skip 1)
             if ($operation -eq 'add-generic-password') {
-                Assert-True ($nativeArgs[-1] -eq '-w') 'Production passed the Keychain password in its argument list.'
-                $nativeArgs = @($nativeArgs | Select-Object -SkipLast 1) + @('-w', 'test-only-password', $script:testKeychain)
+                Assert-True ($args[-1] -eq '-w') 'Production passed the Keychain password in its argument list.'
+                $accountIndex = [array]::IndexOf($args, '-a')
+                $script:testKeychain[[string]$args[$accountIndex + 1]] = 'test-only-password'
             }
-            else {
-                $nativeArgs += $script:testKeychain
+            elseif ($operation -eq 'find-generic-password') {
+                $accountIndex = [array]::IndexOf($args, '-a')
+                $key = [string]$args[$accountIndex + 1]
+                if (-not $script:testKeychain.ContainsKey($key)) { $global:LASTEXITCODE = 1; return }
+                Write-Output $script:testKeychain[$key]
             }
-            & /usr/bin/security $operation @nativeArgs
+            elseif ($operation -eq 'delete-generic-password') {
+                $accountIndex = [array]::IndexOf($args, '-a')
+                $null = $script:testKeychain.Remove([string]$args[$accountIndex + 1])
+            }
+            $global:LASTEXITCODE = 0
         }
     }
 
@@ -115,15 +116,12 @@ approval_mode = "read-only"
     Assert-True (-not (Test-Path -LiteralPath $credentialPath)) 'Credential cleanup did not remove credential metadata.'
     if ($platform -eq 'macOS') {
         $null = Invoke-TestSecurity find-generic-password -s (Get-MtrCredentialService) -a ([string]$savedCredential.credential_id) -w 2>$null
-        Assert-True ($LASTEXITCODE -ne 0) 'Credential cleanup left the password in the isolated Keychain.'
+        Assert-True (-not $testKeychain.ContainsKey([string]$savedCredential.credential_id)) 'Credential cleanup left the password in the test Keychain store.'
     }
 
     'ZenTao configuration and credential smoke checks passed on ' + $platform + '.'
 }
 finally {
-    if ($testKeychain -and (Test-Path -LiteralPath $testKeychain)) {
-        & /usr/bin/security delete-keychain $testKeychain 2>$null | Out-Null
-    }
     foreach ($name in $originalEnvironment.Keys) {
         [Environment]::SetEnvironmentVariable($name, $originalEnvironment[$name], 'Process')
     }

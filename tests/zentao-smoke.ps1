@@ -121,6 +121,7 @@ approval_mode = "read-only"
         Assert-True (-not $global:testKeychain.ContainsKey([string]$savedCredential.credential_id)) 'Credential cleanup left the password in the test Keychain store.'
     }
 
+    $global:LASTEXITCODE = 0
     'ZenTao configuration and credential smoke checks passed on ' + $platform + '.'
 }
 finally {

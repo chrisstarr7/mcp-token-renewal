@@ -22,5 +22,14 @@ $record = [ordered]@{
     account = $account
     password_protected = $protectedPassword
 }
-$record | ConvertTo-Json -Compress | Set-Content -LiteralPath $credentialPath -Encoding UTF8
+$temporaryPath = "$credentialPath.tmp-$PID"
+try {
+    [IO.File]::WriteAllText($temporaryPath, ($record | ConvertTo-Json -Compress), [Text.UTF8Encoding]::new($false))
+    Move-Item -LiteralPath $temporaryPath -Destination $credentialPath -Force
+}
+finally {
+    if (Test-Path -LiteralPath $temporaryPath -PathType Leaf) {
+        Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
+    }
+}
 Write-Host "Credentials saved with current-user DPAPI protection: $credentialPath"

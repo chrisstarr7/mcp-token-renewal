@@ -28,7 +28,7 @@ function Write-ConfigFile([string]$Path, [string]$Content) {
     Move-Item -LiteralPath $temporaryPath -Destination $Path -Force
 }
 
-function Set-CodexMcpConfig {
+function Get-CodexMcpConfigUpdate {
     $configPath = Join-Path $env:USERPROFILE '.codex\config.toml'
     if (Test-Path -LiteralPath $configPath -PathType Leaf) {
         $content = [IO.File]::ReadAllText($configPath)
@@ -42,11 +42,18 @@ function Set-CodexMcpConfig {
     if ($sectionMatches.Count -gt 1) {
         throw 'Codex config has duplicate [mcp_servers.zentao] sections; resolve them manually before setup.'
     }
+    if ([regex]::IsMatch($content, '(?m)^\s*\[\[?mcp_servers\.zentao\.[^\]]+\]\]?\s*(?:#.*)?$')) {
+        throw 'Codex ZenTao config uses a nested table the setup script cannot safely update; resolve it manually before setup.'
+    }
 
     $helper = Get-HelperCommand
     if ($sectionMatches.Count -eq 1) {
         $section = $sectionMatches[0].Value
-        $urlMatches = [regex]::Matches($section, '(?m)^url\s*=\s*"([^"]*)"\s*$')
+        $urlMatches = [regex]::Matches($section, '(?m)^\s*url\s*=\s*["'']([^"'']*)["'']\s*(?:#.*)?$')
+        $urlKeyLines = [regex]::Matches($section, '(?m)^\s*url\s*=')
+        if ($urlMatches.Count -ne $urlKeyLines.Count) {
+            throw 'Codex ZenTao url uses a format this setup script cannot safely update; resolve it manually before setup.'
+        }
         if ($urlMatches.Count -gt 1) {
             throw 'Codex ZenTao entry has duplicate url keys; resolve them manually before setup.'
         }
@@ -67,12 +74,10 @@ function Set-CodexMcpConfig {
         $content += "`r`n[mcp_servers.zentao]`r`nurl = `"$serverUrl`"`r`nhttp_headers_helper = $(ConvertTo-Json -InputObject $helper -Compress)`r`n"
     }
 
-    Backup-ConfigFile $configPath
-    Write-ConfigFile $configPath $content
-    Write-Host "Configured Codex ZenTao MCP in $configPath"
+    return [pscustomobject]@{ Path = $configPath; Content = $content }
 }
 
-function Set-ClaudeMcpConfig {
+function Get-ClaudeMcpConfigUpdate {
     $configPath = Join-Path $env:USERPROFILE '.claude.json'
     if (Test-Path -LiteralPath $configPath -PathType Leaf) {
         try { $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json }
@@ -111,10 +116,13 @@ function Set-ClaudeMcpConfig {
         $config.mcpServers | Add-Member -MemberType NoteProperty -Name $serverName -Value $entry
     }
 
-    Backup-ConfigFile $configPath
     $json = ConvertTo-Json -InputObject $config -Depth 100
-    Write-ConfigFile $configPath ($json + "`r`n")
-    Write-Host "Configured Claude Code ZenTao MCP in $configPath"
+    return [pscustomobject]@{ Path = $configPath; Content = ($json + "`r`n") }
+}
+
+function Restore-FileState([string]$Path, [bool]$Existed, [string]$Content) {
+    if ($Existed) { Write-ConfigFile $Path $Content }
+    elseif (Test-Path -LiteralPath $Path -PathType Leaf) { Remove-Item -LiteralPath $Path -Force }
 }
 
 if ($MyInvocation.InvocationName -ne '.') {
@@ -129,11 +137,43 @@ if ($MyInvocation.InvocationName -ne '.') {
     $choice = Read-Host 'Choice (1-3)'
     if ($choice -notin @('1', '2', '3')) { throw 'Select 1, 2, or 3.' }
 
-    & (Join-Path $PSScriptRoot 'save-credentials.ps1')
-    if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw 'Credential setup failed.' }
+    # Validate and prepare every selected client before asking for or storing credentials.
+    $updates = @()
+    if ($choice -in @('1', '3')) { $updates += Get-CodexMcpConfigUpdate }
+    if ($choice -in @('2', '3')) { $updates += Get-ClaudeMcpConfigUpdate }
 
-    if ($choice -in @('1', '3')) { Set-CodexMcpConfig }
-    if ($choice -in @('2', '3')) { Set-ClaudeMcpConfig }
+    $credentialPath = Join-Path $env:LOCALAPPDATA 'McpTokenRenewal\zentao\credentials.json'
+    $credentialExisted = Test-Path -LiteralPath $credentialPath -PathType Leaf
+    $oldCredential = if ($credentialExisted) { [IO.File]::ReadAllText($credentialPath) } else { $null }
+    $originals = @{}
+    foreach ($update in $updates) {
+        $originals[$update.Path] = [pscustomobject]@{
+            Existed = (Test-Path -LiteralPath $update.Path -PathType Leaf)
+            Content = if (Test-Path -LiteralPath $update.Path -PathType Leaf) { [IO.File]::ReadAllText($update.Path) } else { $null }
+        }
+    }
+
+    & (Join-Path $PSScriptRoot 'save-credentials.ps1')
+    if (-not $?) { throw 'Credential setup failed.' }
+
+    try {
+        foreach ($update in $updates) {
+            Backup-ConfigFile $update.Path
+            Write-ConfigFile $update.Path $update.Content
+            Write-Host "Configured ZenTao MCP in $($update.Path)"
+        }
+    }
+    catch {
+        $failure = $_
+        foreach ($update in $updates) {
+            $original = $originals[$update.Path]
+            try { Restore-FileState $update.Path $original.Existed $original.Content }
+            catch { Write-Warning "Could not restore config $($update.Path): $($_.Exception.Message)" }
+        }
+        try { Restore-FileState $credentialPath $credentialExisted $oldCredential }
+        catch { Write-Warning "Could not restore saved credentials: $($_.Exception.Message)" }
+        throw $failure
+    }
 
     Write-Host 'Setup complete. Restart the selected MCP client to reload its ZenTao server configuration.'
 }

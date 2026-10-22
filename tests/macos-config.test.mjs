@@ -3,7 +3,7 @@ import test from 'node:test';
 import { shellQuote, updateClaudeConfig, updateCodexConfig } from '../scripts/zentao/macos.mjs';
 
 const serverUrl = 'https://pms.daoyoudao.com/zentao/mcp';
-const helper = "'/usr/local/bin/node' '/Users/test/.agents/skills/zentao-token-renewal/scripts/zentao/macos.mjs' headers";
+const helper = "'/usr/local/bin/node' '/Users/test/.agents/skills/zentao-tools/scripts/zentao/macos.mjs' headers";
 
 test('Codex setup appends one user-level MCP server without changing other tables', () => {
   const result = updateCodexConfig('[projects]\n"/tmp" = { trust_level = "trusted" }\n', helper);

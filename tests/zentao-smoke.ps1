@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$tempRoot = Join-Path ([IO.Path]::GetTempPath()) ("zentao-token-renewal-test-" + [guid]::NewGuid().ToString('N'))
+$tempRoot = Join-Path ([IO.Path]::GetTempPath()) ("zentao-tools-test-" + [guid]::NewGuid().ToString('N'))
 $originalEnvironment = @{
     USERPROFILE = $env:USERPROFILE
     LOCALAPPDATA = $env:LOCALAPPDATA

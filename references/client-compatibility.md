@@ -20,7 +20,7 @@ Check current vendor documentation before configuration because client behavior 
 
 ## Shared Skill installation
 
-Codex and OpenCode discover shared Agent Skills under `~/.agents/skills`. Claude Code discovers personal Skills under `~/.claude/skills` and supports symlinked Skill folders. On Windows, a single canonical folder under `%USERPROFILE%\.agents\skills\mcp-token-renewal` can be linked from `%USERPROFILE%\.claude\skills\mcp-token-renewal` so these hosts use the same Skill and helper scripts. This Skill-folder integration applies to Claude Code; Claude Desktop's remote connectors are configured separately through its UI.
+Codex and OpenCode discover shared Agent Skills under `~/.agents/skills`. Claude Code discovers personal Skills under `~/.claude/skills` and supports symlinked Skill folders. On Windows, a single canonical folder under `%USERPROFILE%\.agents\skills\zentao-token-renewal` can be linked from `%USERPROFILE%\.claude\skills\zentao-token-renewal` so these hosts use the same Skill and helper scripts. This Skill-folder integration applies to Claude Code; Claude Desktop's remote connectors are configured separately through its UI.
 
 ## Official references
 

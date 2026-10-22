@@ -1,9 +1,9 @@
 ---
-name: mcp-token-renewal
+name: zentao-token-renewal
 description: Configure and troubleshoot ZenTao MCP authentication and renewable tokens for Codex, Claude Code, OpenCode, and other MCP hosts.
 ---
 
-# MCP Token Renewal
+# ZenTao Token Renewal
 
 Use this skill when a user wants to configure or troubleshoot MCP authentication renewal across agent applications or model providers.
 

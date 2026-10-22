@@ -22,36 +22,39 @@ ZenTao 示例使用固定的公司服务地址，不能直接用于其他 ZenTao
 ## 环境要求
 
 - Windows 或 macOS
-- Node.js、npm 和 Git
-- Windows PowerShell 5.1，或 macOS PowerShell 7（`pwsh`）
+- Node.js 18+、npm 和 Git
+- Windows PowerShell 5.1（Windows）
+- macOS 自带的 Keychain 与 `security` 命令（macOS；无需安装 PowerShell）
 - Codex 或 Claude Code
 - ZenTao 账号，并且该实例允许使用 API V2 登录
 
 ## 安装
 
-```powershell
-npx skills add chrisstarr7/mcp-token-renewal -g -a codex claude-code -y
+```sh
+npx -y skills add chrisstarr7/mcp-token-renewal -g -a codex -y
 ```
 
-此命令将 Skill 安装到当前 Windows 用户的 Codex 和 Claude Code。安装后重启客户端或开启新会话。
+macOS 和 Windows 使用同一条命令。它会将 Skill 安装到当前用户的 Codex；如需同时安装到 Claude Code，将 `-a codex` 改为 `-a codex claude-code`。安装后重启客户端或开启新会话。
+
+Codex 会从用户级 Skill 目录自动发现本 Skill，相关任务会按需读取，不需要手动加载。ZenTao 连接仍需运行一次下面的配置脚本以安全保存账号凭据；安装过程不会自动读取或猜测账号密码。
 
 ## 配置 ZenTao
 
-在 PowerShell 运行配置脚本。
+运行对应平台的配置入口。
 
 Windows：
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$HOME\.agents\skills\mcp-token-renewal\scripts\zentao\configure.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "$HOME/.agents/skills/mcp-token-renewal/setup.ps1"
 ```
 
 macOS：
 
 ```powershell
-pwsh -NoProfile -File "$HOME/.agents/skills/mcp-token-renewal/scripts/zentao/configure.ps1"
+node "$HOME/.agents/skills/mcp-token-renewal/setup.mjs"
 ```
 
-脚本会让你选择 Codex、Claude Code 或两者，检查客户端配置后，在本机提示输入禅道账号。Windows 使用隐藏密码提示并通过当前用户的 DPAPI 加密保存；macOS 使用系统 Keychain 保存密码。写入前会备份已有配置；遇到不支持的配置格式或已有不同的 `zentao` 地址时会停止。
+脚本会让你选择 Codex、Claude Code 或两者，检查客户端配置后，在本机提示输入禅道账号。Windows 使用隐藏密码提示并通过当前用户的 DPAPI 加密保存；macOS 使用系统 Keychain 密码提示保存密码，并由 Node.js helper 获取 token。写入前会备份已有配置；遇到不支持的配置格式或已有不同的 `zentao` 地址时会停止。
 
 配置完成后重启所选客户端。不要在聊天中输入或发送账号密码。
 
@@ -68,7 +71,7 @@ ZenTao API V2 登录接口会重新登录并签发 API Token；这属于重新�
 
 ## 安全说明
 
-ZenTao 示例将账号密码发送到固定的 HTTPS 登录地址：`https://pms.daoyoudao.com/zentao/api.php/v2/users/login`。使用前请确认这是你信任的禅道实例。脚本禁止自动跟随重定向，不会把密码或令牌写入仓库或 MCP 配置。
+ZenTao 示例将账号密码发送到固定的 HTTPS 登录地址：`https://pms.daoyoudao.com/api.php/v2/users/login`。使用前请确认这是你信任的禅道实例。脚本禁止自动跟随重定向，不会把密码或令牌写入仓库或 MCP 配置。
 
 ## 常见问题
 
@@ -103,7 +106,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$HOME\.agents\skills\mc
 macOS：
 
 ```powershell
-pwsh -NoProfile -File "$HOME/.agents/skills/mcp-token-renewal/scripts/zentao/remove-credentials.ps1"
+node "$HOME/.agents/skills/mcp-token-renewal/scripts/zentao/macos.mjs" remove
 ```
 
 更多客户端认证细节见 [`references/client-compatibility.md`](references/client-compatibility.md)。

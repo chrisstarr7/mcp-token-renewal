@@ -3,7 +3,7 @@ $ProgressPreference = 'SilentlyContinue'
 . (Join-Path $PSScriptRoot 'common.ps1')
 
 # Keep this endpoint fixed so stored credentials cannot be redirected to a caller-selected host.
-$loginUri = 'https://pms.daoyoudao.com/zentao/api.php/v2/users/login'
+$loginUri = Get-MtrLoginUri
 $credentialPath = Get-MtrCredentialPath
 
 try {
@@ -13,6 +13,7 @@ try {
 
     $credential = Get-Content -LiteralPath $credentialPath -Raw | ConvertFrom-Json
     $platform = Get-MtrPlatform
+    Import-MtrSecurityModule
     if ([string]::IsNullOrWhiteSpace([string]$credential.account) -or
         ($platform -eq 'Windows' -and [string]::IsNullOrWhiteSpace([string]$credential.password_protected)) -or
         ($platform -eq 'macOS' -and [string]::IsNullOrWhiteSpace([string]$credential.credential_id))) {

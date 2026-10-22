@@ -82,7 +82,10 @@ approval_mode = "read-only"
     Assert-True ($claudeConfig.mcpServers.other.url -eq 'https://example.com/mcp') 'Claude update changed an unrelated server.'
 
     $platform = Get-MtrPlatform
+    Assert-True ((Get-MtrLoginUri) -eq 'https://pms.daoyoudao.com/api.php/v2/users/login') 'ZenTao API V2 login URI is incorrect.'
+    Import-MtrSecurityModule
     if ($platform -eq 'Windows') {
+        Assert-True ([bool](Get-Command ConvertTo-SecureString -ErrorAction SilentlyContinue)) 'Windows Security module did not expose ConvertTo-SecureString.'
         Assert-True ($codexUpdate.Content.Contains('powershell.exe')) 'Windows helper command does not use Windows PowerShell.'
         Assert-True ((Get-MtrCredentialPath).StartsWith($env:LOCALAPPDATA, [StringComparison]::OrdinalIgnoreCase)) 'Windows credentials are outside LocalAppData.'
     }

@@ -60,3 +60,14 @@ function Get-MtrSecurityCommand {
 function Get-MtrCredentialService {
     return 'mcp-token-renewal.zentao'
 }
+
+function Get-MtrLoginUri {
+    return 'https://pms.daoyoudao.com/api.php/v2/users/login'
+}
+
+function Import-MtrSecurityModule {
+    if ((Get-MtrPlatform) -eq 'Windows' -and -not (Get-Command ConvertTo-SecureString -ErrorAction SilentlyContinue)) {
+        $manifest = Join-Path $PSHOME 'Modules/Microsoft.PowerShell.Security/Microsoft.PowerShell.Security.psd1'
+        Import-Module -Name $manifest -ErrorAction Stop
+    }
+}

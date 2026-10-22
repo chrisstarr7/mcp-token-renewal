@@ -4,6 +4,7 @@ if (-not (Get-Command Get-MtrPlatform -CommandType Function -ErrorAction Silentl
 }
 
 $platform = Get-MtrPlatform
+Import-MtrSecurityModule
 
 $account = Read-Host 'ZenTao login name'
 if ([string]::IsNullOrWhiteSpace($account)) {
